@@ -1,0 +1,109 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+#include "signature.h"
+
+static int powint(int a, int b) {
+    if (b > 0) {
+        if (b%2 == 0) {
+            int tmp = powint(a, b/2);
+            return tmp*tmp;
+        } else {
+            int tmp = powint(a, (b-1)/2);
+            return a*tmp*tmp;
+        }
+    } else
+        return (b == 0);
+}
+
+static void normalize(unsigned int* buffer, unsigned int size, unsigned int factor) {
+    int i;
+
+    for (i = 0; i < size; i++) {
+        buffer[i] /= factor;
+    }
+}
+
+unsigned int compute_signature(struct Image* image, int depth, unsigned char* sig) {
+    unsigned int i, j, k, siglen;
+    unsigned int curDepth = depth;
+
+    unsigned int cellWidth = image->width/powint(2,curDepth);
+    unsigned int cellHeight = image->height/powint(2,curDepth);
+    unsigned int nbSideCells = powint(2, curDepth);
+
+    unsigned int** means;
+
+    if (!(means = malloc((depth+1)*sizeof(unsigned int*)))) {
+        fprintf(stderr, "Error allocating means table\n");
+        return 0;
+    }
+
+    for (i = 0; i <= depth; i++) {
+        if (!(means[i] = calloc(image->nbComp*powint(4,i), sizeof(unsigned int)))) {
+            fprintf(stderr, "Error allocating means table\n");
+            return 0;
+        }
+    }
+
+    /*First we build the deepest level of means, directly from the image pixels*/
+    for (j = 0; j < image->height; j++) {
+        for (i = 0; i < image->width; i++) {
+            for (k = 0; k < image->nbComp; k++) {
+                means[curDepth][image->nbComp*(j*nbSideCells/image->height*nbSideCells + i*nbSideCells/image->width) + k]
+                    += image->buffer[j][image->nbComp*i + k];
+            }
+        }
+    }
+    
+    normalize(means[curDepth], image->nbComp*powint(4,curDepth), image->width*image->height/powint(4,curDepth));
+
+    /*Then we recursively build up the lower levels of means up to the level 0, each time by averaging the level beneath*/
+    for (i = curDepth - 1; i >= 0 && i < depth; i--) {
+        for (j = 0; j < powint(4, i+1); j++) {
+            for (k = 0; k < image->nbComp; k++) {
+                int p = j/powint(2,i+2)*powint(2,i) + (j%powint(2,i+1))/2;
+                means[i][image->nbComp*(j/powint(2,i+2)*powint(2,i) + (j%powint(2,i+1))/2) + k] += means[i+1][image->nbComp*j + k];
+            }
+        }
+        normalize(means[i], image->nbComp*powint(4,i),4);
+    }
+
+    /*Finally we copy all this in the signature, while taking some overflow precaution (we're converting uint to uchar...)*/
+    siglen = 0;
+    for (i = 0; i <= depth; i++) {
+        for (j = 0; j < powint(4,i); j++) {
+            for (k = 0; k < image->nbComp; k++) {
+                sig[siglen] = means[i][image->nbComp*j + k] <= 255 ? means[i][image->nbComp*j+k] : 255;
+                siglen++;
+            }
+        }
+    }
+
+    for (i = 0; i <= depth; i++)
+        free(means[i]);
+
+    free(means);
+
+    return siglen;
+}
+
+float distance(unsigned char* sig1, unsigned char* sig2, unsigned int len) {
+    int i;
+    float res = 0;
+    int expo = 0;
+    int cpt = 0;
+
+    for (i = 0; i < len; i++) {
+        res += ((float)sig1[i] - (float)sig2[i])*((float)sig1[i] - (float)sig2[i])
+               / (float)powint(4, expo);
+        cpt++;
+        if (cpt >= powint(4, expo)) {
+            expo++;
+            cpt = 0;
+        }
+    }
+
+    return res;
+}
