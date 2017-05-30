@@ -3,7 +3,8 @@
 
 #include "load_image.h"
 
+unsigned int signature_length(unsigned int depth);
 unsigned int compute_signature(struct Image* image, int depth, unsigned char* sig);
-float distance(unsigned char* sig1, unsigned char* sig2, unsigned int len);
+float distance(unsigned char* sig1, unsigned char* sig2, unsigned int len, int depth);
 
 #endif

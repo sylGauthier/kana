@@ -1,10 +1,17 @@
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "load_image.h"
 #include "signature.h"
 
 void print_help(char* cmd) {
-    printf("Usage: %s <picture_name>\n", cmd);
+    printf("Usage: %s <command> [options]\n", cmd);
+    printf("Commands:\n"
+           "    sig <image> <depth> : computes signature of <image> at depth <depth>\n"
+           "    dist <image1> <image2> <depth> : computes distance between two images\n"
+           "    dist <signature1> <signature2> : computes distance between two signatures (shortest depth is taken into account)\n"
+           "    help : prints this help\n");
 }
 
 int main(int argc, char** argv) {
@@ -13,43 +20,53 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    if (argc == 2) {
-        struct Image* image;
-        unsigned char sig[1000];
-        unsigned int l;
-        int i;
+    if (!strcmp(argv[1], "sig") && argc == 4) {
+        struct Image* im;
+        int depth = strtol(argv[3], NULL, 10);
+        unsigned char* sig;
+        int sigLen;
 
-        image = load_jpeg(argv[1]);
-
-        printf("w: %d, j: %d, c: %d\n", image->width, image->height, image->nbComp);
-
-        l = compute_signature(image, 2, sig);
-
-        printf("Signature is %d bytes long\n", l);
-
-        for (i = 0; i < l; i++) {
-            printf("%02x", sig[i]);
+        if ((im = load_jpeg(argv[2])) && (sig = malloc(signature_length(depth) * sizeof(unsigned char)))) {
+            int i;
+            sigLen = compute_signature(im, depth, sig);
+            printf("Length: %d bytes\n", sigLen);
+            for (i = 0; i < sigLen; i++)
+                printf("%02x", sig[i]);
+            printf("\n");
+            free_image(im);
+            free(sig);
+        } else {
+            fprintf(stderr, "Invalid image, aborting\n");
+            return -1;
         }
-        printf("\n");
-
-        free_image(image);
-    } else if (argc == 3) {
+    } else if (!strcmp(argv[1], "dist") && argc == 5) {
         struct Image* im1;
         struct Image* im2;
-        unsigned char sig1[1000];
-        unsigned char sig2[1000];
-        unsigned int len;
+        int depth = strtol(argv[4], NULL, 10);
+        int sigLen;
+        unsigned char* sig1;
+        unsigned char* sig2;
+        float dist;
 
-        im1 = load_jpeg(argv[1]);
-        im2 = load_jpeg(argv[2]);
+        if ((im1 = load_jpeg(argv[2])) && (im2 = load_jpeg(argv[3]))
+                && (sig1 = malloc(signature_length(depth) * sizeof(unsigned char)))
+                && (sig2 = malloc(signature_length(depth) * sizeof(unsigned char)))) {
+            sigLen = compute_signature(im1, depth, sig1);
+            compute_signature(im2, depth, sig2);
+            dist = distance(sig1, sig2, sigLen, depth);
 
-        len = compute_signature(im1, 3, sig1);
-        compute_signature(im2, 3, sig2);
-
-        printf("Distance: %f\n", distance(sig1, sig2, len));
-
-        free_image(im1);
-        free_image(im2);
+            printf("%f\n", dist);
+        } else {
+            fprintf(stderr, "Invalid image, aborting\n");
+            return -1;
+        }
+    } else if (!strcmp(argv[1], "dist") && argc == 4) {
+        printf("Distance between signatures not implemented yet\n");
+    } else if (!strcmp(argv[1], "help")) {
+        print_help(argv[0]);
+    } else {
+        print_help(argv[0]);
+        return -1;
     }
 
     return 0;

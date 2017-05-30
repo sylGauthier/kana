@@ -25,6 +25,10 @@ static void normalize(unsigned int* buffer, unsigned int size, unsigned int fact
     }
 }
 
+unsigned int signature_length(unsigned int depth) {
+    return powint(4, depth + 1) - 1;
+}
+
 unsigned int compute_signature(struct Image* image, int depth, unsigned char* sig) {
     unsigned int i, j, k, siglen;
     unsigned int curDepth = depth;
@@ -89,7 +93,7 @@ unsigned int compute_signature(struct Image* image, int depth, unsigned char* si
     return siglen;
 }
 
-float distance(unsigned char* sig1, unsigned char* sig2, unsigned int len) {
+float distance(unsigned char* sig1, unsigned char* sig2, unsigned int len, int depth) {
     int i;
     float res = 0;
     int expo = 0;
@@ -102,6 +106,9 @@ float distance(unsigned char* sig1, unsigned char* sig2, unsigned int len) {
         if (cpt >= powint(4, expo)) {
             expo++;
             cpt = 0;
+
+            if (expo > depth)
+                return res/depth;
         }
     }
 
