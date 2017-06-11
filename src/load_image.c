@@ -14,10 +14,15 @@ struct Image* load_jpeg(char* filename) {
     struct jpeg_error_mgr err;
     struct Image* res;
 
+    if (strlen(filename) > FILE_LEN - 1) {
+        fprintf(stderr, "Error: file name too long\n");
+        return NULL;
+    }
+
     printf("Reading image: %s\n", filename);
 
     if (!(inPic = fopen(filename, "r"))) {
-        printf("Cannot open picture\n");
+        fprintf(stderr, "Cannot open picture\n");
         return NULL;
     }
 
@@ -69,6 +74,8 @@ struct Image* load_jpeg(char* filename) {
 
     jpeg_destroy_decompress(&cinfo);
     fclose(inPic);
+
+    strcpy(res->fileName, filename);
 
     return res;
 }

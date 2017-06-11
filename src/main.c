@@ -4,6 +4,7 @@
 
 #include "load_image.h"
 #include "signature.h"
+#include "base.h"
 
 void print_help(char* cmd) {
     printf("Usage: %s <command> [options]\n", cmd);
@@ -11,6 +12,7 @@ void print_help(char* cmd) {
            "    sig <image> <depth> : computes signature of <image> at depth <depth>\n"
            "    dist <image1> <image2> <depth> : computes distance between two images\n"
            "    dist <signature1> <signature2> : computes distance between two signatures (shortest depth is taken into account)\n"
+           "    add <base> <image> [<image2> <image3> ...] : add an image to a base, detect doubles or close matches\n"
            "    help : prints this help\n");
 }
 
@@ -61,7 +63,47 @@ int main(int argc, char** argv) {
             return -1;
         }
     } else if (!strcmp(argv[1], "dist") && argc == 4) {
+        unsigned char* sig1;
+        unsigned char* sig2;
+        int l1, l2;
+        float dist;
+
+        if (hexsig_is_valid(argv[2], strlen(argv[2])) && hexsig_is_valid(argv[3], strlen(argv[3]))) {
+            sig1 = hex_to_bytes(argv[2], &l1);
+            sig2 = hex_to_bytes(argv[3], &l2);
+            l1 = l1 <= l2 ? l1 : l2;
+
+            dist = distance(sig1, sig2, l1, 16);
+            printf("len; %d\n%f\n", l1, dist);
+
+            free(sig1);
+            free(sig2);
+        }
         printf("Distance between signatures not implemented yet\n");
+    } else if (!strcmp(argv[1], "add") && argc >= 4) {
+        struct Base base;
+        struct Image* curImage;
+        int i;
+
+        if (load_base(&base, argv[2]) != 0) {
+            fprintf(stderr, "Loading base failed\n");
+            return -1;
+        }
+        
+        for (i = 3; i < argc; i++) {
+            if (!(curImage = load_jpeg(argv[i]))) {
+                close_base(&base);
+                return -1;
+            }
+
+            if (add_image_to_base(&base, curImage) != 0) {
+                fprintf(stderr, "Adding image failed\n");
+            }
+
+            free_image(curImage);
+        }
+        save_base(&base);
+        close_base(&base);
     } else if (!strcmp(argv[1], "help")) {
         print_help(argv[0]);
     } else {

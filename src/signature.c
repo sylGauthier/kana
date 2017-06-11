@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 #include <math.h>
 
 #include "signature.h"
@@ -25,16 +27,44 @@ static void normalize(unsigned int* buffer, unsigned int size, unsigned int fact
     }
 }
 
+static unsigned char gethex(const char *s, char **endptr) {
+    while (isspace(*s)) s++;
+    return strtoul(s, endptr, 16);
+}
+
+unsigned char* hex_to_bytes(const char *s, int *length) {
+    unsigned char *answer = malloc((strlen(s) + 1) / 3);
+    unsigned char *p;
+    for (p = answer; *s; p++)
+        *p = gethex(s, (char **)&s);
+    *length = p - answer;
+    return answer;
+}
+
 unsigned int signature_length(unsigned int depth) {
     return powint(4, depth + 1) - 1;
+}
+
+int hexsig_is_valid(char* sig, int len) {
+    unsigned int i;
+
+    for (i = 0; i < len; i++) {
+        if (!((sig[i] >= '0' && sig[i] <= '9') || (sig[i] >= 'a' && sig[i] <= 'f')))
+            return 0;
+    }
+
+    for (i = 0; i < 15; i++) {
+        if (len == 2*signature_length(i))
+            return 1;
+    }
+
+    return 0;
 }
 
 unsigned int compute_signature(struct Image* image, int depth, unsigned char* sig) {
     unsigned int i, j, k, siglen;
     unsigned int curDepth = depth;
 
-    unsigned int cellWidth = image->width/powint(2,curDepth);
-    unsigned int cellHeight = image->height/powint(2,curDepth);
     unsigned int nbSideCells = powint(2, curDepth);
 
     unsigned int** means;
@@ -60,14 +90,13 @@ unsigned int compute_signature(struct Image* image, int depth, unsigned char* si
             }
         }
     }
-    
+
     normalize(means[curDepth], image->nbComp*powint(4,curDepth), image->width*image->height/powint(4,curDepth));
 
     /*Then we recursively build up the lower levels of means up to the level 0, each time by averaging the level beneath*/
     for (i = curDepth - 1; i >= 0 && i < depth; i--) {
         for (j = 0; j < powint(4, i+1); j++) {
             for (k = 0; k < image->nbComp; k++) {
-                int p = j/powint(2,i+2)*powint(2,i) + (j%powint(2,i+1))/2;
                 means[i][image->nbComp*(j/powint(2,i+2)*powint(2,i) + (j%powint(2,i+1))/2) + k] += means[i+1][image->nbComp*j + k];
             }
         }
@@ -101,7 +130,7 @@ float distance(unsigned char* sig1, unsigned char* sig2, unsigned int len, int d
 
     for (i = 0; i < len; i++) {
         res += ((float)sig1[i] - (float)sig2[i])*((float)sig1[i] - (float)sig2[i])
-               / (float)powint(4, expo);
+            / (float)powint(4, expo);
         cpt++;
         if (cpt >= powint(4, expo)) {
             expo++;
@@ -112,5 +141,5 @@ float distance(unsigned char* sig1, unsigned char* sig2, unsigned int len, int d
         }
     }
 
-    return res;
+    return res/expo;
 }
