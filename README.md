@@ -3,7 +3,7 @@
 ## Description
 This program computes distances between two images in a very fast and effective way. To do so, it computes a signature from each picture, that has the property of being continous, meaning a small change in the picture will induce a small change in the signature. From there, a distance between two signatures is easily defined and computed, and gives accurate result.
 
-The program can also build a data baae of signatures/file association, and perform check for similar-looking pictures when adding a a new picture. It is useful to remove doubles from large dataset, and keep only the best quality version.
+The program can also build a data base of signature/file associations, and perform check for similar-looking pictures when adding a new picture. It is useful to remove doubles from large dataset, and keep only the best quality version.
 
 The major property of the algorithm in use is that it doesn't depend on the scale of the image. A 600*300 picture and the same picture resized to 200*500 for example will have a distance close to zero. A slightly cropped picture will also appear very close.
 
