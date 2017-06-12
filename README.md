@@ -35,6 +35,3 @@ Signature computation is performed with a very naive yet surprisingly effective 
 Basically, it resizes the pictures to a very low res square, which makes it easy to compare them efficiently.
 
 Therefore, false positive are a relatively common occurence when distance threshold is too high, but false negative almost never occurs.
-
-## On the name
-https://en.wikipedia.org/wiki/Kana_Hanazawa
