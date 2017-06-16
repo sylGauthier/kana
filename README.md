@@ -23,7 +23,6 @@ Example, let's say you have a folder A containing a large number of .jpg picture
 
 ```
 cd A
-touch database.kana
 kana add database.kana *.jpg
 ```
 
