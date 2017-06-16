@@ -5,7 +5,7 @@
 #include "base.h"
 #include "signature.h"
 
-#define HEADER_MIN_SIZE 5
+#define HEADER_MIN_SIZE 13
 
 enum ReadStatus {
     ABORT,
@@ -30,6 +30,18 @@ static enum ReadStatus read_entry(struct Entry* entry, FILE* f) {
         unsigned int i;
         fseek(f, pos, SEEK_SET);
         entry->fileNameLen = 0;
+        entry->width = 0;
+        entry->height = 0;
+
+        for (i = 0; i < 3; i++) {
+            entry->width = (entry->width + fgetc(f)) << 8;
+        }
+        entry->width += fgetc(f);
+
+        for (i = 0; i < 3; i++) {
+            entry->height = (entry->height + fgetc(f)) << 8;
+        }
+        entry->height += fgetc(f);
 
         for (i = 0; i < 3; i++) {
             entry->fileNameLen = (entry->fileNameLen + fgetc(f)) << 8;
@@ -72,7 +84,12 @@ static int append_entry(struct Base* base, struct Entry* entry) {
 
 int load_base(struct Base* base, char* filename) {
     struct Entry curEntry;
-    base->file = fopen(filename, "a+");
+
+    if (!((base->file = fopen(filename, "r+")) || (base->file = fopen(filename, "w+")))) {
+        fprintf(stderr, "Error, could not open nor create data base file\n");
+        return -1;
+    }
+
     base->data = NULL;
     base->size = 0;
 
@@ -110,10 +127,27 @@ int load_base(struct Base* base, char* filename) {
 int save_base(struct Base* base) {
     int i;
 
-    printf("Saving data base of size %d from %d...\n", base->size, base->appendPos);
+    printf("Saving data base of size %d...\n", base->size);
+    fseek(base->file, 0, SEEK_SET);
 
-    for (i = base->appendPos; i < base->size; i++) {
+    for (i = 0; i < base->size; i++) {
         int j;
+
+        /*Writing width*/
+        for (j = 0; j < 4; j++) {
+            if (fputc((unsigned char) (base->data[i].width >> (8*(3-j))), base->file) == EOF) {
+                fprintf(stderr, "Error writing file name length in data base file, aborting, data base may be corrupted\n");
+                return -1;
+            }
+        }
+
+        /*Writing height*/
+        for (j = 0; j < 4; j++) {
+            if (fputc((unsigned char) (base->data[i].height >> (8*(3-j))), base->file) == EOF) {
+                fprintf(stderr, "Error writing file name length in data base file, aborting, data base may be corrupted\n");
+                return -1;
+            }
+        }
 
         /*Writing file name length*/
         for (j = 0; j < 4; j++) {
@@ -156,6 +190,8 @@ int add_image_to_base(struct Base* base, struct Image* image) {
     printf("Adding %s\n", image->fileName);
     newEntry.sigLen = SIG_LEN;
     newEntry.fileNameLen = strlen(image->fileName);
+    newEntry.width = image->width;
+    newEntry.height = image->height;
     strcpy(newEntry.fileName, image->fileName);
 
     if (signature_length(SIG_DEPTH) > SIG_LEN) {
@@ -173,24 +209,34 @@ int add_image_to_base(struct Base* base, struct Image* image) {
             char choice;
 
             printf("Close match detected: %s (old) and %s (new)\n", base->data[i].fileName, newEntry.fileName);
+            printf("Dimensions: %dx%d (old) %dx%d (new)\n", base->data[i].width, base->data[i].height, newEntry.width, newEntry.height);
             printf("Distance: %f\n", dist);
-            printf("Add anyway: a, Skip: S\n");
+            printf("Add anyway: a, Replace: r, Skip: S\n");
 
             choice = getchar();
 
             switch (choice) {
                 case 'a' :
                     getchar();
+                    printf("Appending\n");
+
                     return append_entry(base, &newEntry);
                     break;
 
-                case '\n' :
+                case 'r' :
                     getchar();
+                    printf("Replacing\n");
+                    base->data[i] = newEntry;
+                    return 0;
+                    break;
+
+                case '\n' :
                     printf("Skipping\n");
                     return 0;
                     break;
 
                 default :
+                    getchar();
                     printf("Skipping\n");
                     return 0;
                     break;
