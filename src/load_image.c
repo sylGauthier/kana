@@ -19,8 +19,6 @@ struct Image* load_jpeg(char* filename) {
         return NULL;
     }
 
-    printf("Reading image: %s\n", filename);
-
     if (!(inPic = fopen(filename, "r"))) {
         fprintf(stderr, "Cannot open picture\n");
         return NULL;
