@@ -1,7 +1,7 @@
 #ifndef BASE_H
 #define BASE_H
 
-#define DISTANCE_THRESHOLD 400.0
+#define DISTANCE_THRESHOLD 320.0
 #define SIG_LEN 1023
 #define SIG_DEPTH 4
 
@@ -14,6 +14,8 @@ struct Entry {
     char fileName[FILE_LEN];
     unsigned int sigLen;
     unsigned int fileNameLen;
+    unsigned int width;
+    unsigned int height;
 };
 
 struct Base {
